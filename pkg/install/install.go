@@ -128,7 +128,7 @@ func InstallRoleBinding(ns string, config *rest.Config) error {
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
-			Name:     "kpture-admin",
+			Name:     "kpture-cr",
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}

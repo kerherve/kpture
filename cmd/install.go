@@ -67,6 +67,7 @@ var installCmd = &cobra.Command{
 		install.InstallProxy(client, "kpture")
 		install.Installservice(client, "kpture")
 		install.InstallRole("kpture", config)
+		install.InstallRoleBinding("kpture", config)
 	},
 }
 
