@@ -89,7 +89,7 @@ which samples packets on desired pods and send the captured informations back vi
 		wf.WriteFileHeader(1024, layers.LinkTypeEthernet)
 
 		for _, pod := range pods {
-			socket.StartCapture(socket.Capture{ContainerName: pod, ContainerNamespace: "default", Interface: "eth0", FileName: OutputFolder + "/" + pod + ".pcap"}, dial, wf)
+			socket.StartCapture(socket.Capture{ContainerName: pod, ContainerNamespace: Namespace, Interface: "eth0", FileName: OutputFolder + "/" + pod + ".pcap"}, dial, wf)
 		}
 		for {
 

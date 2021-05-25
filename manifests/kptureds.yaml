@@ -21,7 +21,10 @@ spec:
         effect: NoSchedule
       containers:
       - name: kpture-server
-        image: gmtstephane/kptureds:0.0.3
+        image: gmtstephane/kpture-server:v0.2.0
+        env:
+        - name: CTRNAMEPSACE
+          value: "moby"
         ports:
         - containerPort: 8080
         volumeMounts:
@@ -34,7 +37,7 @@ spec:
       volumes:
       - name: ctrsock
         hostPath:
-          path: /var/snap/microk8s/common/run/containerd.sock
-      - name: proc
+          path: /run/containerd/containerd.sock
+      - name: proc 
         hostPath:
           path: /proc/

@@ -31,6 +31,7 @@ POSSIBILITY OF SUCH DAMAGE.
 package cmd
 
 import (
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/kpture/kpture/pkg/install"
 	"github.com/kpture/kpture/pkg/kubernetes"
 	"github.com/spf13/cobra"
@@ -42,11 +43,30 @@ var installCmd = &cobra.Command{
 	Short: "Install kpture tools on your kubernetes cluster",
 	Long:  `This perform the installation of a daemonset, a proxy and a nodePort service`,
 	Run: func(cmd *cobra.Command, args []string) {
-		client, err := kubernetes.LoadClient(Kubeconfig)
+
+		socketpath := ""
+		prompt := &survey.Input{
+			Message: "Containerd socket location",
+		}
+		err := survey.AskOne(prompt, &socketpath)
 		cobra.CheckErr(err)
-		install.InstallDaemonset(client, "kpture")
+
+		ctrnamespace := ""
+		prompt = &survey.Input{
+			Message: "Containerd namespace",
+		}
+		err = survey.AskOne(prompt, &ctrnamespace)
+
+		cobra.CheckErr(err)
+
+		client, err := kubernetes.LoadClient(Kubeconfig)
+		config, err := kubernetes.LoadConfig(Kubeconfig)
+		cobra.CheckErr(err)
+		// install.InstallDaemonset(client, "kpture", "moby", "/run/containerd/containerd.sock")
+		install.InstallDaemonset(client, "kpture", ctrnamespace, socketpath)
 		install.InstallProxy(client, "kpture")
 		install.Installservice(client, "kpture")
+		install.InstallRole("kpture", config)
 	},
 }
 

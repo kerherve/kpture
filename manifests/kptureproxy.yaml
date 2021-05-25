@@ -14,9 +14,12 @@ spec:
     spec:
       containers:
       - name: kpture-proxy
-        image: gmtstephane/kptureproxy:0.0.4
+        image: gmtstephane/kpture-proxy:v0.2.0
         ports:
         - containerPort: 8080
+        env:
+        - name: INCLUSTER
+          value: "TRUE"
 ---
 apiVersion: v1
 kind: Service

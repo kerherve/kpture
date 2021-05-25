@@ -1,0 +1,23 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kpture-admin
+rules:
+# Just an example, feel free to change it
+- apiGroups: [""]
+  resources: ["pods", "nodes"]
+  verbs: ["get", "watch", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kpture-rbac
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kpture
+roleRef:
+  kind: ClusterRole
+  name: kpture-admin
+  apiGroup: rbac.authorization.k8s.io
