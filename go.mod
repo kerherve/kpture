@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.2.12
-	github.com/fatih/color v1.7.0
+	github.com/fatih/color v1.12.0
 	github.com/google/gopacket v1.1.19
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pkg/errors v0.9.1
