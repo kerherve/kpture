@@ -25,7 +25,7 @@ func SelectPod(kubeclient *kubernetes.Clientset, namespace string, kconfig *rest
 		listpodString = append(listpodString, pod.Name)
 	}
 
-	prompt := &survey.MultiSelect{Options: listpodString}
+	prompt := &survey.MultiSelect{Options: listpodString, PageSize: 30}
 	survey.AskOne(prompt, &listpodselected, survey.WithPageSize(10))
 
 	service, err := kubeclient.CoreV1().Services("").List(context.Background(), metav1.ListOptions{LabelSelector: "service=kpture-proxy-service"})
