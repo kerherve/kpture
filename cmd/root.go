@@ -33,6 +33,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/google/gopacket/layers"
@@ -40,6 +42,8 @@ import (
 	"github.com/kpture/kpture/pkg/kubernetes"
 	"github.com/kpture/kpture/pkg/socket"
 	"github.com/spf13/cobra"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
@@ -55,6 +59,9 @@ var Kubeconfig string
 
 //OutputFolder represent the kubernetes configuration file
 var OutputFolder string
+
+//Logs
+var Logs bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -88,8 +95,23 @@ which samples packets on desired pods and send the captured informations back vi
 		wf := pcapgo.NewWriter(f)
 		wf.WriteFileHeader(1024, layers.LinkTypeEthernet)
 
+		podLogOpts := v1.PodLogOptions{}
+		if Logs {
+			podLogOpts = v1.PodLogOptions{SinceTime: &metav1.Time{Time: time.Now()}}
+			c := make(chan os.Signal)
+			signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+			go func() {
+				<-c
+				kubernetes.GetLogs(client, Namespace, pods, podLogOpts, OutputFolder)
+				os.Exit(1)
+			}()
+		}
 		for _, pod := range pods {
-			socket.StartCapture(socket.Capture{ContainerName: pod, ContainerNamespace: Namespace, Interface: "eth0", FileName: OutputFolder + "/" + pod + ".pcap"}, dial, wf)
+			err = os.Mkdir(OutputFolder+"/"+pod, os.ModePerm)
+			if err != nil {
+				cobra.CheckErr(err)
+			}
+			socket.StartCapture(socket.Capture{ContainerName: pod, ContainerNamespace: Namespace, Interface: "eth0", FileName: OutputFolder + "/" + pod + "/" + pod + ".pcap"}, dial, wf)
 		}
 		for {
 
@@ -114,6 +136,8 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.kpture.yaml)")
 	rootCmd.PersistentFlags().StringVarP(&Namespace, "namespace", "n", "default", "kubernetes namespace")
+
+	rootCmd.Flags().BoolVarP(&Logs, "logs", "l", false, "fetch container logs as well")
 
 	home, err := homedir.Dir()
 	cobra.CheckErr(err)
