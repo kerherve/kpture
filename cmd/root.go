@@ -32,36 +32,32 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcapgo"
-	"github.com/kpture/kpture/pkg/kubernetes"
-	"github.com/kpture/kpture/pkg/socket"
+	log "github.com/sirupsen/logrus"
+
+	nested "github.com/antonfisher/nested-logrus-formatter"
+	"github.com/kpture/kpture/pkg/config"
+	"github.com/kpture/kpture/pkg/kpture"
+	"github.com/kpture/kpture/pkg/tcpserver"
+	"github.com/kpture/kpture/pkg/utils"
 	"github.com/spf13/cobra"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
-
-//Namespace represent the kubernetes Namespace provided in configuration
-var Namespace string
-
-//Kubeconfig represent the kubernetes configuration file
-var Kubeconfig string
-
-//OutputFolder represent the kubernetes configuration file
-var OutputFolder string
-
-//Logs
-var Logs bool
+var (
+	cfgFile      string
+	Namespaces   []string
+	Kubeconfig   string
+	OutputFolder string
+	Config       config.AppConfig
+	Logger       *log.Entry
+	TcpServer    bool
+	Wireshark    bool
+	HttpServer   bool
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -73,49 +69,33 @@ which samples packets on desired pods and send the captured informations back vi
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
-		client, err := kubernetes.LoadClient(Kubeconfig)
-		cobra.CheckErr(err)
-		config, err := kubernetes.LoadConfig(Kubeconfig)
-		cobra.CheckErr(err)
-		pods, dial := kubernetes.SelectPod(client, Namespace, config)
+		utils.PrintAppName()
 
-		if len(pods) == 0 {
-			return
+		k := kpture.KptureCli{}
+		t := &tcpserver.TcpServer{}
+
+		//Init the tcpserver only if needed
+		if Wireshark || TcpServer {
+			t = tcpserver.NewTcpServer(log.TraceLevel)
 		}
 
-		err = os.Mkdir(OutputFolder, os.ModePerm)
-		if err != nil {
-			cobra.CheckErr(err)
-		}
-
-		f, err := os.Create(OutputFolder + "/merged.pcap")
-		if err != nil {
-			cobra.CheckErr(err)
-		}
-		wf := pcapgo.NewWriter(f)
-		wf.WriteFileHeader(1024, layers.LinkTypeEthernet)
-
-		podLogOpts := v1.PodLogOptions{}
-		if Logs {
-			podLogOpts = v1.PodLogOptions{SinceTime: &metav1.Time{Time: time.Now()}}
-			c := make(chan os.Signal)
-			signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-			go func() {
-				<-c
-				kubernetes.GetLogs(client, Namespace, pods, podLogOpts, OutputFolder)
-				os.Exit(1)
-			}()
-		}
-		for _, pod := range pods {
-			err = os.Mkdir(OutputFolder+"/"+pod, os.ModePerm)
+		if Wireshark {
+			KubernetesHostFile, err := k.GetDnsHostFile()
 			if err != nil {
-				cobra.CheckErr(err)
+				Logger.Fatal("Could not Create DNS File", err)
 			}
-			socket.StartCapture(socket.Capture{ContainerName: pod, ContainerNamespace: Namespace, Interface: "eth0", FileName: OutputFolder + "/" + pod + "/" + pod + ".pcap"}, dial, wf)
+			err = Config.Wireshark.Init(KubernetesHostFile, log.TraceLevel)
+			if err != nil {
+				Logger.Fatal(err)
+			}
+			//Start the capture
+			Config.Wireshark.Open(t.Port)
 		}
-		for {
 
-		}
+		//Setup And Start Capture
+		k.Setup(Kubeconfig, OutputFolder, Namespaces, log.TraceLevel, t.Receiver)
+		k.Start(HttpServer)
+
 	},
 }
 
@@ -128,21 +108,20 @@ func Execute() {
 func init() {
 
 	t := fmt.Sprint(time.Now().Unix())
-	cobra.OnInitialize(initConfig)
-
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.kpture.yaml)")
-	rootCmd.PersistentFlags().StringVarP(&Namespace, "namespace", "n", "default", "kubernetes namespace")
-
-	rootCmd.Flags().BoolVarP(&Logs, "logs", "l", false, "fetch container logs as well")
+	rootCmd.PersistentFlags().StringArrayVarP(&Namespaces, "namespace", "n", []string{"default"}, "kubernetes namespace")
 
 	home, err := homedir.Dir()
 	cobra.CheckErr(err)
+	rootCmd.PersistentFlags().BoolVarP(&TcpServer, "tcpserver", "t", false, "Create a local tcp server where wireshark/tshark can read from")
+	rootCmd.PersistentFlags().BoolVarP(&Wireshark, "wireshark", "w", false, "Generate wireshark profile and run it on the local tcp server")
+	rootCmd.PersistentFlags().BoolVarP(&HttpServer, "metricserver", "m", false, "Enalbe capture stats on :8090/metrics")
+
 	rootCmd.PersistentFlags().StringVarP(&Kubeconfig, "kubeconfig", "k", home+"/.kube/config", "kubernetes configfile")
 	rootCmd.Flags().StringVarP(&OutputFolder, "output", "o", t, "Output folder for pcap files")
+	cobra.OnInitialize(initConfig)
+
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -158,12 +137,36 @@ func initConfig() {
 		// Search config in home directory with name ".kpture" (without extension).
 		viper.AddConfigPath(home)
 		viper.SetConfigName(".kpture")
+		viper.SetConfigType("yaml") // REQUIRED if the config file does not have the extension in the name
+
+		if err := viper.ReadInConfig(); err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		if err := viper.Unmarshal(&Config); err != nil {
+			fmt.Println(err)
+			return
+		}
+
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		fmt.Errorf("Using config file:", viper.ConfigFileUsed())
 	}
+
+	// viper.WriteConfig()
+
+	l := log.New()
+	l.SetLevel(log.TraceLevel)
+	l.SetFormatter(&nested.Formatter{
+		HideKeys:        true,
+		TrimMessages:    true,
+		TimestampFormat: time.Stamp,
+	})
+
+	Logger = l.WithFields(log.Fields{"": "cli"})
 }

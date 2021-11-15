@@ -18,7 +18,6 @@ import (
 //InstallDaemonset Create the kubernetes daemonset
 func InstallDaemonset(Client *kubernetes.Clientset, ns string, containerdns string, containerdsocket string) error {
 	_, errns := Client.CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
-
 	if errns != nil {
 		fmt.Println(errns)
 	}

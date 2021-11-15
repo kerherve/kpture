@@ -32,8 +32,6 @@ package cmd
 
 import (
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/kpture/kpture/pkg/install"
-	"github.com/kpture/kpture/pkg/kubernetes"
 	"github.com/spf13/cobra"
 )
 
@@ -59,15 +57,16 @@ var installCmd = &cobra.Command{
 
 		cobra.CheckErr(err)
 
-		client, err := kubernetes.LoadClient(Kubeconfig)
-		config, err := kubernetes.LoadConfig(Kubeconfig)
-		cobra.CheckErr(err)
-		// install.InstallDaemonset(client, "kpture", "moby", "/run/containerd/containerd.sock")
-		install.InstallDaemonset(client, "kpture", ctrnamespace, socketpath)
-		install.InstallProxy(client, "kpture")
-		install.Installservice(client, "kpture")
-		install.InstallRole("kpture", config)
-		install.InstallRoleBinding("kpture", config)
+		// client, err := kubernetes.LoadClient(Kubeconfig)
+		// config, err := kubernetes.LoadConfig(Kubeconfig)
+		// cobra.CheckErr(err)
+		// // install.InstallDaemonset(client, "kpture", "moby", "/run/containerd/containerd.sock")
+
+		// install.InstallDaemonset(client, "kpture", ctrnamespace, socketpath)
+		// install.InstallProxy(client, "kpture")
+		// install.Installservice(client, "kpture")
+		// install.InstallRole("kpture", config)
+		// install.InstallRoleBinding("kpture", config)
 	},
 }
 
