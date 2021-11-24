@@ -81,6 +81,9 @@ which samples packets on desired pods and send the captured informations back vi
 		k.Setup(Kubeconfig, OutputFolder, Namespaces, log.TraceLevel, t.Receiver)
 
 		if Wireshark {
+			if Config.Wireshark == nil {
+				log.Fatal("Wireshark config no supplied")
+			}
 			KubernetesHostFile, err := k.GetDnsHostFile()
 			if err != nil {
 				Logger.Fatal("Could not Create DNS File", err)
@@ -126,6 +129,8 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+	log.Info("ConfigFileLocation ", cfgFile)
+
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
@@ -138,17 +143,16 @@ func initConfig() {
 		viper.AddConfigPath(home)
 		viper.SetConfigName(".kpture")
 		viper.SetConfigType("yaml") // REQUIRED if the config file does not have the extension in the name
+	}
 
-		if err := viper.ReadInConfig(); err != nil {
-			fmt.Println(err)
-			return
-		}
+	if err := viper.ReadInConfig(); err != nil {
+		fmt.Println(err)
+		return
+	}
 
-		if err := viper.Unmarshal(&Config); err != nil {
-			fmt.Println(err)
-			return
-		}
-
+	if err := viper.Unmarshal(&Config); err != nil {
+		fmt.Println(err)
+		return
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
