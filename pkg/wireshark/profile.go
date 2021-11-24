@@ -153,6 +153,7 @@ func (w *Wireshark) createPreferences() {
 }
 
 func (w *Wireshark) Open(port int) {
+	w.Logger.Info()
 	ip := utils.GetOutboundIP()
 	go func() {
 		w.Logger.Info("Opening Wireshark")

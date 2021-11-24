@@ -78,6 +78,7 @@ which samples packets on desired pods and send the captured informations back vi
 		if Wireshark || TcpServer {
 			t = tcpserver.NewTcpServer(log.TraceLevel)
 		}
+		k.Setup(Kubeconfig, OutputFolder, Namespaces, log.TraceLevel, t.Receiver)
 
 		if Wireshark {
 			KubernetesHostFile, err := k.GetDnsHostFile()
@@ -93,7 +94,6 @@ which samples packets on desired pods and send the captured informations back vi
 		}
 
 		//Setup And Start Capture
-		k.Setup(Kubeconfig, OutputFolder, Namespaces, log.TraceLevel, t.Receiver)
 		k.Start(HttpServer)
 
 	},

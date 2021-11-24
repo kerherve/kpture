@@ -75,7 +75,6 @@ func (t *TcpServer) Wirte2Conns(b []byte) {
 	Info.Timestamp = time.Unix(int64(g), int64(n)).UTC()
 	Info.CaptureLength = int(binary.LittleEndian.Uint32(b[8:12]))
 	Info.Length = int(binary.LittleEndian.Uint32(b[12:16]))
-
 	if Info.CaptureLength != len(b[16:]) {
 		t.Logger.Errorf("capture length %d does not match data length %d", Info.CaptureLength, len(b[16:]))
 	} else if Info.CaptureLength > Info.Length {
